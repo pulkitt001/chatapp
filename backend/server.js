@@ -5,14 +5,22 @@ import cookieParser from "cookie-parser";
 import authroute from "./routes/authroutes.js";
 import messageroutes from "./routes/messageroutes.js";
 import userroutes from "./routes/userroutes.js";
-
+import cors from 'cors'
 
 import connectToMongoDB from "./db/connectToMongoDB.js";
 
-const app = express();
-const PORT = process.env.PORT || 5000;
-
 dotenv.config();
+const app = express();
+const PORT =  7000;
+
+const corsOptions = {
+    origin: 'http://localhost:5173', // Frontend URL
+    methods: ['GET', 'POST'], // Allowed HTTP methods
+    allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
+    credentials: true, // Allow cookies or auth headers
+  };
+  
+  app.use(cors(corsOptions));
 
 app.use(express.json());   // to parse the incoming requests with JSON payloads (from req.body)
 app.use (cookieParser());
