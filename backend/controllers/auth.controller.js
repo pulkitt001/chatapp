@@ -6,11 +6,22 @@ export const signup = async (req, res) => {
     try {
         const { fullName, username, password, confirmPassword, gender } = req.body;
 
+        // Check for required fields
+        if (!fullName || !username || !password || !confirmPassword || !gender) {
+            return res.status(400).json({ error: "All fields are required" });
+        }
+
+        // Validate gender
+        if (!["male", "female"].includes(gender)) {
+            return res.status(400).json({ error: "Invalid gender" });
+        }
+
         if (password !== confirmPassword) {
             return res.status(400).json({ error: "Passwords don't match" });
         }
 
-        const user = await User.findOne({ username });
+        // Case-insensitive username check
+        const user = await User.findOne({ username: { $regex: new RegExp(`^${username}$`, 'i') } });
 
         if (user) {
             return res.status(400).json({ error: "Username already exists" });
@@ -32,7 +43,7 @@ export const signup = async (req, res) => {
 
         await newUser.save();
 
-        // Generate JWT token here
+        // Generate JWT token and set cookie
         generateTokenAndSetCookie(newUser._id, res);
 
         res.status(201).json({
@@ -50,6 +61,12 @@ export const signup = async (req, res) => {
 export const login = async (req, res) => {
     try {
         const { username, password } = req.body;
+
+        // Check for required fields
+        if (!username || !password) {
+            return res.status(400).json({ error: "All fields are required" });
+        }
+
         const user = await User.findOne({ username });
 
         if (!user) {
@@ -62,6 +79,7 @@ export const login = async (req, res) => {
             return res.status(400).json({ error: "Invalid username or password" });
         }
 
+        // Generate JWT token and set cookie
         generateTokenAndSetCookie(user._id, res);
 
         res.status(200).json({
@@ -78,7 +96,13 @@ export const login = async (req, res) => {
 
 export const logout = async (req, res) => {
     try {
-        res.cookie("jwt", "", { maxAge: 0 });
+        // Clear the cookie with the same settings
+        res.cookie("jwt", "", {
+            httpOnly: true, // Use same settings as when setting the cookie
+            secure: process.env.NODE_ENV === "production", // Only for HTTPS in production
+            sameSite: "strict",
+            maxAge: 0,
+        });
         res.status(200).json({ message: "Logged out successfully" });
     } catch (error) {
         console.error("Error in logout controller:", error.message);

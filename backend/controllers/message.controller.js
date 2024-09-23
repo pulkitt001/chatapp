@@ -4,9 +4,15 @@ import { getReceiverSocketId, io } from "../socket/socket.js";
 
 export const sendMessage = async (req, res) => {
 	try {
+		
+		
 		const { message } = req.body;
 		const { id: receiverId } = req.params;
 		const senderId = req.user._id;
+
+		if (!message || !receiverId) {
+			return res.status(400).json({ error: "Message and receiver ID are required" });
+		}
 
 		let conversation = await Conversation.findOne({
 			participants: { $all: [senderId, receiverId] },
@@ -28,16 +34,12 @@ export const sendMessage = async (req, res) => {
 			conversation.messages.push(newMessage._id);
 		}
 
-		// await conversation.save();
-		// await newMessage.save();
-
-		// this will run in parallel
+		// Save both conversation and message in parallel
 		await Promise.all([conversation.save(), newMessage.save()]);
 
-		// SOCKET IO FUNCTIONALITY WILL GO HERE
+		// Emit the new message to the receiver via Socket.io
 		const receiverSocketId = getReceiverSocketId(receiverId);
 		if (receiverSocketId) {
-			// io.to(<socket_id>).emit() used to send events to specific client
 			io.to(receiverSocketId).emit("newMessage", newMessage);
 		}
 
@@ -50,14 +52,16 @@ export const sendMessage = async (req, res) => {
 
 export const getMessages = async (req, res) => {
 	try {
+		console.log("enter");
+		
 		const { id: userToChatId } = req.params;
 		const senderId = req.user._id;
 
 		const conversation = await Conversation.findOne({
 			participants: { $all: [senderId, userToChatId] },
-		}).populate("messages"); // NOT REFERENCE BUT ACTUAL MESSAGES
+		}).populate("messages"); // Populate the messages field with actual message data
 
-		if (!conversation) return res.status(200).json([]);
+		if (!conversation) return res.status(200).json([]); // No conversation found
 
 		const messages = conversation.messages;
 

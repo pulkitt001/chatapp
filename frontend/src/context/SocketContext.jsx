@@ -4,9 +4,7 @@ import io from "socket.io-client";
 
 const SocketContext = createContext();
 
-export const useSocketContext = () => {
-	return useContext(SocketContext);
-};
+export const useSocketContext = () => useContext(SocketContext);
 
 export const SocketContextProvider = ({ children }) => {
 	const [socket, setSocket] = useState(null);
@@ -14,28 +12,48 @@ export const SocketContextProvider = ({ children }) => {
 	const { authUser } = useAuthContext();
 
 	useEffect(() => {
+		let socketInstance;
+
 		if (authUser) {
-			const socket = io("http://localhost:5000", {
-				query: {
-					userId: authUser._id,
-				},
+			socketInstance = io("http://localhost:5000", {
+				query: { userId: authUser._id },
+				transports: ["websocket", "polling"], // Added polling as fallback
 			});
 
-			setSocket(socket);
+			setSocket(socketInstance);
 
-			// socket.on() is used to listen to the events. can be used both on client and server side
-			socket.on("getOnlineUsers", (users) => {
+			socketInstance.on("connect", () => {
+				console.log("Socket connected:", socketInstance.id);
+			});
+
+			socketInstance.on("getOnlineUsers", (users) => {
 				setOnlineUsers(users);
 			});
 
-			return () => socket.close();
+			socketInstance.on("connect_error", (err) => {
+				console.error("Socket connection error:", err);
+			});
+
+			// Cleanup function to close the socket connection
+			return () => {
+				if (socketInstance) {
+					socketInstance.off("getOnlineUsers");
+					socketInstance.disconnect();
+				}
+				setSocket(null);
+			};
 		} else {
+			// If there's no authUser, close the existing socket connection if it exists
 			if (socket) {
-				socket.close();
+				socket.disconnect();
 				setSocket(null);
 			}
 		}
 	}, [authUser]);
 
-	return <SocketContext.Provider value={{ socket, onlineUsers }}>{children}</SocketContext.Provider>;
+	return (
+		<SocketContext.Provider value={{ socket, onlineUsers }}>
+			{children}
+		</SocketContext.Provider>
+	);
 };

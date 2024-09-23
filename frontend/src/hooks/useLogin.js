@@ -14,16 +14,25 @@ const useLogin = () => {
 			const res = await fetch(`${import.meta.env.VITE_LOCAL_HOST}/api/auth/login`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
+				credentials: "include",
 				body: JSON.stringify({ username, password }),
 			});
 
-			const data = await res.json();
-			if (data.error) {
-				throw new Error(data.error);
+			// Check if the response is successful
+			if (!res.ok) {
+				const errorData = await res.json();
+				throw new Error(errorData.error || "Login failed");
 			}
 
+			// Assuming the response is JSON
+			const data = await res.json();
+
+			// Save user data to local storage
 			localStorage.setItem("chat-user", JSON.stringify(data));
 			setAuthUser(data);
+
+			// Optional: success notification
+			toast.success("Logged in successfully");
 		} catch (error) {
 			toast.error(error.message);
 		} finally {
@@ -33,6 +42,7 @@ const useLogin = () => {
 
 	return { loading, login };
 };
+
 export default useLogin;
 
 function handleInputErrors(username, password) {
@@ -40,6 +50,5 @@ function handleInputErrors(username, password) {
 		toast.error("Please fill in all fields");
 		return false;
 	}
-
 	return true;
 }
